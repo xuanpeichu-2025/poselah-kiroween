@@ -2,9 +2,9 @@
   "version": "v1",
   "hooks": [
     {
-      "name": "Run lint on source save",
+      "name": "Lint on save",
       "trigger": "PostFileSave",
-      "description": "On saving a .ts/.tsx file under app/, components/, hooks/ or lib/, run npm run lint and report only errors.",
+      "description": "On saving a .ts or .tsx file in app, components, hooks or lib, run npm run lint and report only errors.",
       "matcher": "(^|/)(app|components|hooks|lib)/.*\\.(ts|tsx)$",
       "action": {
         "type": "command",

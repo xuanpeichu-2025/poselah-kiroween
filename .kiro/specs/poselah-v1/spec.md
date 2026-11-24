@@ -2,19 +2,23 @@
 
 ## Introduction
 
-PoseLah is a phone camera photography coach for the person holding the phone.
-The phone coaches the photographer, not the subject: it tells them which
-direction to face, how to angle and level the phone, and how to frame the shot,
-then captures and stores the result.
+PoseLah is a portrait photography assistant for the person holding the phone
+and the person in front of it. Scene first: scan the surroundings, find the best
+spot, set the angle, tilt and framing, then optionally ask the AI Coach for pose
+and composition advice.
 
 This is the v1 specification, built for the Kiroween (Halloween) hackathon,
-Costume Contest category. Scope is a demo: the simplest version that proves the
-coaching loop end to end.
+Frankenstein category (stitching sensors, camera, on-device image math, a cloud
+vision AI, and a pose library into one app). Scope is a demo: the simplest
+version that proves the coaching loop end to end.
 
-Everything runs client-side in a mobile browser. The camera and motion sensors
-are phone-only APIs; see "Verification constraints" for what must be confirmed
-on a real device before it is claimed to work. There is no human pose detection
-anywhere in the product: the pose outline is a static guide.
+The product has two tiers. Core (FR-1 to FR-10 and the NFRs) is the client-side
+scan/angle/tilt/level/framing/capture/gallery loop: no server, no upload, and it
+must not be weakened. Tier 2 (FR-11 to FR-17) is the optional, cuttable AI Coach;
+it sends one downscaled camera frame to Google's AI, only after consent. Core
+stays no-upload and no network. There is no human pose detection anywhere in the
+product: outlines are static, pre-drawn guides, and the AI Coach picks from that
+library rather than detecting a pose.
 
 ## Functional requirements
 
@@ -142,6 +146,9 @@ Acceptance criteria:
   back camera selects the last-used back-camera mode (default Full body).
 - Switching mode or camera updates the outline and tilt target and clears the
   target to prompt a rescan (FR-5).
+- Each mode has a fixed library of at most 6 pre-drawn outline poses (see
+  FR-11). The default (first) pose shows in Core; the AI Coach (Tier 2) may
+  select another by pose_id.
 
 ### FR-7 Photo capture
 A capture action takes a still photo from the current camera stream.
@@ -201,6 +208,87 @@ Acceptance criteria:
   "This device has no motion sensors, so the arrows and level line are off. You
   can still frame and take photos."
 
+## Tier 2 — AI Coach (optional)
+
+Tier 2 is optional and cuttable; the Core requirements (FR-1 to FR-10 and the
+NFRs) are unchanged and must not be weakened. Core stays no-upload and no
+network. Tier 2 is the only exception: it sends one downscaled camera frame to
+Google's AI, only after consent, and never stores it.
+
+### FR-11 Coach request and response (Tier 2, optional)
+Tapping Coach captures one camera frame and asks the AI for advice.
+
+Acceptance criteria:
+- Tapping Coach captures one frame, downscales it (longest side 768px, JPEG
+  quality about 0.7), and POSTs it with the active shot mode and the optional
+  Photo goal (FR-14) to `/api/coach`. The frame is never stored, logged, or
+  added to the gallery.
+- `/api/coach` is a Next.js route handler. The API key is read from
+  `GEMINI_API_KEY` on the server only (never `NEXT_PUBLIC_`); the model name is
+  read from `COACH_MODEL`. Add `.env.example` with blank values; `.env.local`
+  stays gitignored.
+- The model returns JSON with short fields (about 120 characters each):
+  `light`, `background`, `framing`, `camera_height_and_tilt`, `top_tip`,
+  `pose_id`, `why`. The route validates the response and rejects any `pose_id`
+  not in the mode's library.
+- Spooky mode phrases its advice in a short ghostly voice; other modes stay
+  plain and practical.
+
+### FR-12 Show the chosen outline (Tier 2, optional)
+The `pose_id` from FR-11 selects an outline from the mode's library and shows it
+over the camera using the existing outline overlay. No human pose detection and
+no matching.
+
+Acceptance criteria:
+- The chosen outline replaces the mode's default outline via the existing
+  overlay system.
+- If the AI Coach is not used, the mode's default outline (the first pose in
+  the library) shows, as in Core.
+
+### FR-13 "Show subject" screen (Tier 2, optional)
+A full-screen, no-camera display of the suggested outline and the pose tip, so
+the photographer can show the subject.
+
+Acceptance criteria:
+- It shows the chosen outline large, plus the pose tip, with no camera feed.
+- It is hidden in Selfie mode (the photographer is the subject).
+
+### FR-14 Photo goal box (Tier 2, optional)
+An optional short text box next to the Coach button.
+
+Acceptance criteria:
+- Max 140 characters.
+- It is treated strictly as user data inside the coach prompt, never as
+  instructions. The route validates `pose_id` (FR-11), so a crafted Photo goal
+  cannot smuggle an outline outside the library.
+
+### FR-15 First-use consent (Tier 2, optional)
+A one-time notice before the first request each session.
+
+Acceptance criteria:
+- Before the first request each session, show: "The current view is sent to
+  Google's AI to generate tips. PoseLah does not store it." The user taps
+  Continue.
+- Without consent, nothing is sent.
+
+### FR-16 Route limits and failure UX (Tier 2, optional)
+The route is bounded; failures never break Core.
+
+Acceptance criteria:
+- The route enforces a request size limit, a per-visitor rate limit (1 per 10
+  seconds, 20 per hour), a global daily cap, and a 10-second timeout.
+- On any failure, timeout, or quota exhaustion, the UI shows "Coach is resting,
+  try again later". The Core camera keeps working.
+
+### FR-17 Advice panel (Tier 2, optional)
+The advice appears in a small panel.
+
+Acceptance criteria:
+- The advice shows in a small panel that matches the current theme, with a
+  Close button. No emoji.
+- The panel shows the returned text fields; the chosen outline shows via the
+  existing overlay (FR-12).
+
 ## Non-functional requirements
 
 - NFR-1 Design: the interface is calm and uncluttered, with no emoji anywhere
@@ -214,8 +302,10 @@ Acceptance criteria:
   the level line. See `product.md`.
 - NFR-2 Device: primary target is a phone in portrait, in a mobile browser.
   Desktop is secondary.
-- NFR-3 Privacy: photos and camera frames stay on the device. No network
-  upload. Camera is active only while the viewfinder is in use.
+- NFR-3 Privacy (Core): photos and camera frames stay on the device; no network
+  upload. Camera is active only while the viewfinder is in use. Tier 2 adds one
+  optional coach route that sends a single downscaled frame to Google's AI,
+  only after consent (FR-11, FR-15); Core itself never uploads.
 - NFR-4 Performance: overlays and readings update smoothly. Real frame rate on
   a phone is a verification constraint, not a claim.
 - NFR-5 Build gate: `npm run build` must pass; small changes only. See
@@ -233,7 +323,10 @@ Acceptance criteria:
 
 ## Out of scope (v1)
 
-- Server, accounts, cloud sync, or upload of photos.
+Core has no server, accounts, cloud sync, or upload of photos. Tier 2 adds only
+the optional coach route (FR-11): no accounts, no sync; it sends one downscaled
+frame per request after consent and never stores it.
+
 - Deleting photos from the gallery.
 - Sharing beyond the in-app Save (download) button.
 - Video capture.
@@ -243,6 +336,8 @@ Acceptance criteria:
 - Gallery persistence across sessions.
 - Sensor calibration UI (rely on OS calibration).
 - PWA or offline support.
+- Tier 2, not in v1: reference-photo upload, live or real-time guidance, 3D
+  anchored silhouettes, voice.
 
 ## Open questions
 
@@ -250,6 +345,7 @@ To be finalized in design (do not assume answers):
 - Exact target tilt value per mode, and the exact outline shapes, sizes, and
   positions.
 - The exact scoring formulas and weights (inputs are specified in FR-5).
+- Tier 2: the at most 6 pose outlines per mode, and the coach prompt copy.
 
 ## Verification constraints (must be confirmed on a real phone)
 
@@ -278,3 +374,6 @@ These cannot be claimed working from a desktop or browser device emulation:
   the level line legible.
 - Gallery and Save (download) on device; most-recent-8 cap and blob URL
   revocation behaving as specified.
+- Tier 2: the Coach button, first-use consent, capture+downscale POST, rate
+  limits/failure UX, advice panel, and "Show subject" screen on a phone; the
+  coach route validates `pose_id` server-side (not phone-specific).

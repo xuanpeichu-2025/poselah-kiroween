@@ -1,3 +1,5 @@
+PoseLah is a portrait photography assistant for the person holding the phone and the person in front of it. Scene first: scan the surroundings, find the best spot, set the angle, tilt and framing, then optionally ask the AI Coach for pose and composition advice.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
