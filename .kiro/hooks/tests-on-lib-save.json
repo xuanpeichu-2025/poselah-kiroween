@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run lib tests on save",
+      "trigger": "PostFileSave",
+      "description": "On saving a .ts file under lib/, run npm test and report only failures briefly. Needs the test script + Vitest added in T1.",
+      "matcher": "lib/.*\\.ts$",
+      "action": {
+        "type": "command",
+        "command": "node .kiro/hooks/run-tests.mjs",
+        "timeout": 60
+      }
+    }
+  ]
+}
