@@ -103,11 +103,17 @@ Conventions for every task:
   `LevelLine.tsx`, `ReadyState.tsx`, `components/CoachView.tsx`.
 - **Done:** `npm run build` passes. Heading arrows L/R (flipped for front),
   tilt arrows T/B, level line solid within 1.5°, ready state at 5/5/3°, neutral
-  before a scan, camera-corrected heading via `orientForCamera`.
-- **Verify on phone:** turn/tilt the phone; see heading arrows, tilt arrows, the
-  level line solid near level, and the ready state; front-camera arrows flip;
-  neutral before a scan.
-- **Commit:** `feat(guidance): arrows, level line, ready state`
+  until a target is set, camera-corrected heading via `orientForCamera`.
+  Temporary scaffolding for this task only: a "Set test target" button that sets
+  the target heading to the current heading + 90°, and a temporary tilt target
+  constant. The button is removed in T12 (the scan sets the real heading
+  target); the tilt constant is removed in T13 (modes set the real tilt target).
+- **Verify on phone:** tap "Set test target" to set the target 90° off; see the
+  heading arrows point toward it and shrink as you turn to it; tilt toward the
+  temporary tilt target and see the tilt arrows, the level line go solid, and the
+  ready state; flip to the front camera and confirm the left/right arrows flip;
+  with no target set, confirm neutral (no arrows).
+- **Commit:** `feat(guidance): arrows, level line, ready state, test target`
 
 ### T10 — `lib/regions.ts` + `lib/metrics.ts`
 - **Goal:** region masks + frame metrics.
@@ -134,7 +140,9 @@ Conventions for every task:
 - **Done:** `npm run build` passes. Sample the cover-crop area at ~64px
   (`willReadFrequently`), ≤5 Hz; assign by `sliceIndex` on the camera-corrected
   heading; `computeMetrics` → `scoreSlice`; best score per slice; auto-finish
-  11/12, manual stop ≥3; set target; clear on mode/camera change.
+  11/12, manual stop ≥3; set target; clear on mode/camera change. Remove the
+  temporary "Set test target" button from T9; the scan now sets the real heading
+  target.
 - **Verify on phone:** run a scan turning in place; the ring fills; auto-finish
   at 11/12 (or stop ≥3); arrows then guide to the target.
 - **Commit:** `feat(scan): 360° scan + coverage ring`
@@ -148,7 +156,8 @@ Conventions for every task:
   + scoring profiles + draft pose tips; outline + selfie oval + `SAFE_BOTTOM`;
   ≤6 poses per mode; `isValidPoseId` tested. Selecting a mode sets its camera;
   flip front → Selfie, back → last back mode (default Full body); switching
-  clears the target; Spooky = low angle + ghostly outline.
+  clears the target; Spooky = low angle + ghostly outline. Remove the temporary
+  tilt target constant from T9; modes now set the real tilt target.
 - **Verify on phone:** switch modes; the outline shows above the safe area; flip
   to front selects Selfie, flip to back selects the last back mode; Spooky shows
   the ghostly outline + low-angle tilt target.
@@ -179,6 +188,20 @@ Conventions for every task:
 - **Verify on phone:** none (pure logic).
 - **Commit:** `feat(coach-lib): downscale, JSON validation, rate-limit logic`
 
+### T15b — API key and env
+- **Goal:** create the Gemini API key and wire the server-only env vars.
+- **Files:** `.env.local` (gitignored), Vercel project Environment Variables (you
+  set these in the dashboard; nothing committed). Commit the blank `.env.example`
+  if not yet committed.
+- **Done:** `.env.local` is ignored by git; you created a Gemini API key in Google
+  AI Studio with a quota cap set on the Google side; `GEMINI_API_KEY` and
+  `COACH_MODEL` are set in `.env.local` and in the Vercel project's Environment
+  Variables; a redeploy succeeds. The key is never committed and never pasted
+  into chat.
+- **Verify on phone:** a redeploy succeeds (no build/env errors) and Vercel shows
+  both variables. The route itself is exercised in T16/T17.
+- **Commit:** `chore: commit .env.example template for coach env`
+
 ### T16 — Coach route
 - **Goal:** `/api/coach` route handler (image, env, validate, limits, failure).
 - **Files:** `app/api/coach/route.ts` (and confirm `.env.example` is committed).
@@ -188,8 +211,9 @@ Conventions for every task:
   rejects bad `pose_id`; request size limit; per-visitor 1/10s + 20/hr + global
   daily cap via `lib/ratelimit.ts`; never logs/stores the image; returns
   429/422/503 on limit/failure.
-- **Verify on phone:** indirect (exercised by T17). On desktop, POST a 768px
-  JPEG to `/api/coach` and check valid JSON; repeat quickly to confirm 429.
+- **Verify on phone:** verified through T17 on the phone (the route has no UI of
+  its own): tapping Coach returns advice, and rapid taps hit the rate limit
+  (429 → "Coach is resting").
 - **Commit:** `feat(coach): /api/coach route handler (image, validation, limits)`
 
 ### T17 — AICoach + CoachPanel
